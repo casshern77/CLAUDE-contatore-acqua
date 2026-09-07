@@ -75,6 +75,23 @@ def analizza():
     except Exception as e:
         return jsonify({'errore': f'Errore: {str(e)}'}), 500
 
+
+
+
+
+@app.route('/modelli')
+def modelli():
+    resp = requests.get(
+        f"https://generativelanguage.googleapis.com/v1beta/models?key={GEMINI_API_KEY}",
+        timeout=10
+    )
+    return resp.json()
+    
+
+
+
+
+
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)

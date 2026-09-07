@@ -16,7 +16,58 @@ def index():
 
 @app.route('/analizza', methods=['POST'])
 def analizza():
-    # ... tutto il codice esistente ...
+    if 'foto' not in request.files:
+        return jsonify({'errore': 'Nessuna foto ricevuta.'}), 400
+
+    file = request.files['foto']
+    if file.filename == '':
+        return jsonify({'errore': 'File non valido.'}), 400
+
+    try:
+        img_bytes = file.read()
+        img = Image.open(io.BytesIO(img_bytes))
+        img.thumbnail((1024, 1024))
+        buf = io.BytesIO()
+        img.convert('RGB').save(buf, format='JPEG', quality=75)
+        img_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
+
+        payload = {
+            "contents": [{
+                "parts": [
+                    {
+                        "inline_data": {
+                            "mime_type": "image/jpeg",
+                            "data": img_b64
+                        }
+                    },
+                    {
+                        "text": (
+                            "Sei un sistema di lettura contatori idrici. "
+                            "Analizza questa immagine e dimmi SOLO i numeri che vedi "
+                            "sul display del contatore dell'acqua, nell'ordine da sinistra "
+                            "a destra. Rispondi SOLO con i numeri, senza testo aggiuntivo, "
+                            "senza unità di misura, senza spazi. Solo le cifre."
+                        )
+                    }
+                ]
+            }]
+        }
+
+        resp = requests.post(
+            f"{GEMINI_URL}?key={GEMINI_API_KEY}",
+            json=payload,
+            timeout=90
+        )
+        resp.raise_for_status()
+        data = resp.json()
+
+        lettura = data['candidates'][0]['content']['parts'][0]['text'].strip()
+        return jsonify({'lettura': lettura})
+
+    except requests.exceptions.Timeout:
+        return jsonify({'errore': 'Timeout: Gemini ha impiegato troppo. Riprova.'}), 504
+    except Exception as e:
+        return jsonify({'errore': f'Errore: {str(e)}'}), 500
 
 @app.route('/modelli')
 def modelli():
@@ -26,7 +77,6 @@ def modelli():
     )
     return resp.json()
 
-# ← AGGIUNGI QUI IL NUOVO ENDPOINT
 @app.route('/test-modello/<nome>')
 def test_modello(nome):
     payload = {

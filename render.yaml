@@ -4,7 +4,8 @@ services:
     runtime: python
     plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app --worker-class gevent --workers 1 --timeout 120
+    startCommand: gunicorn app:app --timeout 120 --workers 1 --threads 2
+    #startCommand: gunicorn app:app --worker-class gevent --workers 1 --timeout 120
     envVars:
       - key: GEMINI_API_KEY
         sync: false

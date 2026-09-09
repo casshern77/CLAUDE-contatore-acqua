@@ -7,13 +7,11 @@ from PIL import Image
 
 app = Flask(__name__)
 
-# Due API key configurate come variabili d'ambiente su Render
 GEMINI_KEYS = [
     os.environ.get("GEMINI_API_KEY_1"),
     os.environ.get("GEMINI_API_KEY_2"),
 ]
 
-# Lista modelli da provare in ordine
 MODELLI = [
     "gemini-3.5-flash",
     "gemini-3.5-flash-lite",
@@ -67,29 +65,27 @@ def analizza():
             }]
         }
 
-        tentativi = []
+        tentativi_eseguiti = []
 
         for key_idx, api_key in enumerate(GEMINI_KEYS, start=1):
             if not api_key:
                 continue
             for modello in MODELLI:
-                tentativo = f"account_{key_idx} / {modello}"
-                tentativi.append(tentativo)
+                label = f"account_{key_idx} / {modello}"
+                tentativi_eseguiti.append(label)
                 try:
                     url = f"{BASE_URL}/{modello}:generateContent?key={api_key}"
-                    resp = requests.post(url, json=payload, timeout=60)
+                    resp = requests.post(url, json=payload, timeout=10)
 
                     if resp.status_code == 200:
                         data = resp.json()
                         lettura = data['candidates'][0]['content']['parts'][0]['text'].strip()
                         return jsonify({
                             'lettura': lettura,
-                            'tentativo_riuscito': tentativo,
-                            'tentativi': tentativi
+                            'tentativo_riuscito': label,
+                            'tentativi': tentativi_eseguiti
                         })
-                    # 429 = rate limit, 503 = sovraccarico → proviamo il prossimo
-                    elif resp.status_code in (429, 503, 404):
-                        continue
+                    # Qualsiasi errore → prossimo tentativo
                     else:
                         continue
 
@@ -100,7 +96,7 @@ def analizza():
 
         return jsonify({
             'errore': 'Tutti i server sono temporaneamente occupati. Riprova tra qualche secondo.',
-            'tentativi': tentativi
+            'tentativi': tentativi_eseguiti
         }), 503
 
     except Exception as e:
